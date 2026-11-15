@@ -136,3 +136,46 @@ auto-load, voice warm-up and conversation restore all run inside `runCatching`,
 and a failure is recorded rather than propagated. A missing model, a broken
 audio device or an unreadable database degrades one feature instead of closing
 the app.
+
+## 7. Startup crash on Samsung SM-A042F (Android 14) — ROOT CAUSE FOUND AND FIXED
+
+Reported symptom: installed APK opened and closed immediately.
+
+Recorded stack (from `CrashReporter`, API 34):
+
+```
+java.lang.IllegalArgumentException: foregroundServiceType 0x00000001 is not a
+subset of foregroundServiceType attribute 0x00000000 in service element of
+manifest file
+  at android.app.Service.startForeground(Service.java:862)
+  at androidx.work.impl.foreground.SystemForegroundService$Api31Impl
+```
+
+Cause: `DownloadWorker` starts a foreground worker with
+`FOREGROUND_SERVICE_TYPE_DATA_SYNC` (0x1), but the merged manifest's
+`androidx.work.impl.foreground.SystemForegroundService` carried no
+`foregroundServiceType` at all (0x0). Since `targetSdk 34`, Android validates the
+type passed to `startForeground()` against that manifest attribute and throws on
+a mismatch — on the main thread, so the process dies. WorkManager declares the
+service in its own manifest without a type, and the app never added one.
+
+Fix (`app/src/main/AndroidManifest.xml`):
+
+```xml
+<service
+    android:name="androidx.work.impl.foreground.SystemForegroundService"
+    android:foregroundServiceType="dataSync"
+    tools:node="merge" />
+```
+
+Verified in the built artifact, not just in source:
+
+```
+aapt2 dump xmltree --file AndroidManifest.xml app-debug.apk
+  ...:name="androidx.work.impl.foreground.SystemForegroundService"
+  ...:foregroundServiceType(0x01010599)=0x00000001
+```
+
+0x00000001 == `FOREGROUND_SERVICE_TYPE_DATA_SYNC`, which is precisely what
+`DownloadWorker.buildNotification()` requests. The `FOREGROUND_SERVICE_DATA_SYNC`
+permission was already declared, so no permission change was needed.

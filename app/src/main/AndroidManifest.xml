@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Network: model/voice downloads and (opt-in) online research. -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -45,12 +46,25 @@
             </intent-filter>
         </activity>
 
+        <!--
+            WorkManager runs downloads as a foreground data-sync worker. Since
+            targetSdk 34, Android checks the type passed to startForeground()
+            against this service's manifest attribute and throws
+            IllegalArgumentException — killing the whole process — when the
+            service declares nothing (0x0). The declaration below is what makes
+            a download survive; without it the app closes as soon as the worker
+            goes foreground.
+        -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
         <!-- Downloads run in WorkManager's foreground worker; nothing else runs in the background. -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
-            tools:node="merge"
-            xmlns:tools="http://schemas.android.com/tools" />
+            tools:node="merge" />
     </application>
 </manifest>
