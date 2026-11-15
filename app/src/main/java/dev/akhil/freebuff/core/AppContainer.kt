@@ -39,6 +39,10 @@ class AppContainer private constructor(context: Context) {
 
     val appContext: Context = context.applicationContext
 
+    /** Set when a non-fatal startup step failed, so the UI can say what broke. */
+    @Volatile
+    var startupError: String? = null
+
     /** Long-lived scope for work that must survive a screen rotation. */
     val appScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -101,8 +105,12 @@ class AppContainer private constructor(context: Context) {
     }
 
     fun bootstrap() {
-        Notifications.ensureChannels(appContext)
-        storage.cleanStalePartials()
+        runCatching { Notifications.ensureChannels(appContext) }.onFailure {
+            CrashReporter.record("bootstrap.channels", it)
+        }
+        runCatching { storage.cleanStalePartials() }.onFailure {
+            CrashReporter.record("bootstrap.partials", it)
+        }
     }
 
     companion object {

@@ -74,25 +74,35 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             runCatching { container.installer.seedCatalog() }
-            val appSettings = container.settings.current()
+                .onFailure { dev.akhil.freebuff.core.CrashReporter.record("viewmodel.seed", it) }
+            val appSettings = runCatching { container.settings.current() }.getOrNull()
+                ?: return@launch
             if (!appSettings.onboardingComplete) return@launch
             if (appSettings.autoLoadLastModel) {
-                val installed = models.value.filter {
-                    it.kind == "LLM" && it.status == "INSTALLED" && it.installedPath != null
-                }
-                val preferred = installed.firstOrNull { it.id == appSettings.activeModelId }
-                    ?: installed.firstOrNull()
-                if (preferred != null && container.engines.active.value == null) {
-                    container.engines.loadLocal(
-                        preferred.id,
-                        appSettings.contextTokens,
-                        appSettings.threads,
-                    )
-                }
+                // Loading a model can fail for many honest reasons (missing file,
+                // not enough RAM, no native build). None of them may kill startup.
+                runCatching {
+                    val installed = models.value.filter {
+                        it.kind == "LLM" && it.status == "INSTALLED" && it.installedPath != null
+                    }
+                    val preferred = installed.firstOrNull { it.id == appSettings.activeModelId }
+                        ?: installed.firstOrNull()
+                    if (preferred != null && container.engines.active.value == null) {
+                        container.engines.loadLocal(
+                            preferred.id,
+                            appSettings.contextTokens,
+                            appSettings.threads,
+                        )
+                    }
+                }.onFailure { dev.akhil.freebuff.core.CrashReporter.record("viewmodel.autoload", it) }
             }
             runCatching { container.voice.initialise() }
+                .onFailure { dev.akhil.freebuff.core.CrashReporter.record("viewmodel.voice", it) }
             val last = appSettings.lastConversationId
-            if (last != null) container.chat.open(last)
+            if (last != null) {
+                runCatching { container.chat.open(last) }
+                    .onFailure { dev.akhil.freebuff.core.CrashReporter.record("viewmodel.open-conversation", it) }
+            }
         }
     }
 

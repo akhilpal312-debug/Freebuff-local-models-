@@ -6,6 +6,7 @@ import dev.akhil.freebuff.data.db.TerminalEntryEntity
 import dev.akhil.freebuff.projects.WorkspaceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
@@ -83,9 +84,21 @@ class TerminalRunner(
     fun sessionEntries(sessionId: String): Flow<List<TerminalEntryEntity>> =
         db.terminal().observe(sessionId)
 
-    fun history(sessionId: String, limit: Int = 80): List<String> = runCatching {
-        emptyList<String>()
-    }.getOrDefault(emptyList())
+    /**
+     * The last [limit] commands typed in [sessionId], newest first.
+     *
+     * Reads on the IO dispatcher because a Room query on the caller's thread
+     * would throw (and would block the UI). Any database failure degrades to an
+     * empty list — command recall is a convenience, never a reason to crash.
+     */
+    fun history(sessionId: String, limit: Int = 80): List<String> {
+        if (sessionId.isBlank() || limit <= 0) return emptyList()
+        return runCatching {
+            runBlocking(Dispatchers.IO) {
+                db.terminal().recent(sessionId, limit).map { it.command }
+            }
+        }.getOrDefault(emptyList())
+    }
 
     fun cancelActive() {
         activeProcess.getAndSet(null)?.let { process ->

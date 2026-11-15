@@ -10,7 +10,7 @@ Nothing in this file is aspirational.
 * Linux x86_64, 2 cores, no physical Android device and no emulator (no KVM) —
   **so nothing was run on a device**. Every on-device statement below is marked.
 
-## 1. Unit tests — PASSED (16 tests, 0 failures)
+## 1. Unit tests — PASSED (19 tests, 0 failures)
 
 ```
 ./gradlew :app:testDebugUnitTest
@@ -33,7 +33,7 @@ Test results: `app/build/test-results/testDebugUnitTest/*.xml`.
 ```
 
 Produced `app/build/outputs/apk/debug/app-debug.apk`, shipped as
-`artifacts/freebuff-mobile-1.0.0-debug.apk` (60.6 MB, arm64-v8a + armeabi-v7a).
+`artifacts/freebuff-mobile-1.0.0-debug.apk` (60.7 MB, arm64-v8a + armeabi-v7a).
 
 Artifact checks performed:
 
@@ -105,3 +105,34 @@ echo "sdk.dir=/path/to/android-sdk" > local.properties
 ./scripts/fetch-native.sh
 ./gradlew :app:assembleDebug -PwithNative=true   # APK with llama.cpp + whisper.cpp
 ```
+
+## 5. Startup regression test — PASSED (Robolectric, 3 tests)
+
+`app/src/test/java/dev/akhil/freebuff/LaunchTest.kt` runs the real
+`Application` (which builds `AppContainer` and bootstraps storage), then the real
+`MainActivity`, then recreates it — all headless on SDK 33. It exists because a
+release that only compiles can still close the instant it is tapped, and that is
+exactly the failure a device-less build cannot see.
+
+```
+./gradlew :app:testDebugUnitTest --tests "dev.akhil.freebuff.LaunchTest"
+```
+
+What this proves: the container, the Room database, DataStore, the theme and the
+first Compose tree all initialise without throwing.
+What it cannot prove: any device-only failure (missing native library, an OEM
+keystore quirk, a 32-bit-only device). Those are covered by the crash recorder
+below instead of being guessed at.
+
+## 6. Crash recorder
+
+`core/CrashReporter.kt` installs an uncaught-exception handler that writes the
+real stack trace plus the device fingerprint to `files/last-crash.txt` before the
+process dies, then delegates to the previous handler. On the next successful
+launch `MainActivity` shows that record in a dialog with Copy and Dismiss.
+
+Startup itself is now defensive: `FreebuffApp.onCreate`, `bootstrap()`, model
+auto-load, voice warm-up and conversation restore all run inside `runCatching`,
+and a failure is recorded rather than propagated. A missing model, a broken
+audio device or an unreadable database degrades one feature instead of closing
+the app.

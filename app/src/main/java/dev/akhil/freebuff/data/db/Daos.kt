@@ -247,6 +247,10 @@ interface TerminalDao {
     @Query("SELECT * FROM terminal_entries WHERE sessionId = :sessionId ORDER BY startedAt DESC LIMIT 200")
     suspend fun list(sessionId: String): List<TerminalEntryEntity>
 
+    /** Newest first, capped by the caller instead of a fixed 200. */
+    @Query("SELECT * FROM terminal_entries WHERE sessionId = :sessionId ORDER BY startedAt DESC LIMIT :limit")
+    suspend fun recent(sessionId: String, limit: Int): List<TerminalEntryEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entry: TerminalEntryEntity)
 
