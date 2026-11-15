@@ -1,0 +1,32 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(freebuff_whisper CXX C)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# whisper.cpp vendors its own ggml target, which collides with llama.cpp's inside
+# a single CMake project. It is therefore built by scripts/build-whisper-android.sh
+# as a standalone project; the resulting libfreebuff_whisper.so is packaged from
+# app/src/main/jniLibs/<abi>/.
+
+set(WHISPER_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../whisper.cpp)
+if(NOT EXISTS ${WHISPER_SRC}/CMakeLists.txt)
+    message(FATAL_ERROR "whisper.cpp is missing at ${WHISPER_SRC}. Run ./scripts/fetch-native.sh first.")
+endif()
+
+set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
+add_subdirectory(${WHISPER_SRC} ${CMAKE_BINARY_DIR}/whisper)
+
+find_library(log-lib log)
+
+add_library(freebuff_whisper SHARED ${CMAKE_CURRENT_SOURCE_DIR}/../whisper_jni.cpp)
+target_link_libraries(freebuff_whisper PRIVATE whisper ${log-lib} android)
+target_include_directories(freebuff_whisper PRIVATE
+    ${WHISPER_SRC}/include
+    ${WHISPER_SRC}/ggml/include
+)
+target_compile_options(freebuff_whisper PRIVATE -O3 -fexceptions -frtti)

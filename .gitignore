@@ -1,0 +1,35 @@
+# NOTE: patterns are anchored with a leading slash on purpose. A bare `build/`
+# also matches the Kotlin package directory dev/akhil/freebuff/build/, which
+# silently deleted that source folder once already.
+
+# Gradle / Android build output
+/build/
+/app/build/
+/app/.cxx/
+/.gradle/
+/.kotlin/
+/app/.externalNativeBuild/
+captures/
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# Generated APKs and bundles (the deliverable lives in artifacts/)
+*.apk
+*.aab
+!/artifacts/*.apk
+*.keystore
+*.jks
+secrets.properties
+
+# Native sources fetched by scripts/fetch-native.sh (large, pinned upstream)
+/app/src/main/cpp/llama.cpp/
+/app/src/main/cpp/whisper.cpp/
+
+# Speech library produced by scripts/build-whisper-android.sh
+/app/src/main/jniLibs/
+
+# Local build logs
+/build-*.log

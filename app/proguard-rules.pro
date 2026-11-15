@@ -1,0 +1,8 @@
+-keepclasseswithmembernames class * { native <methods>; }
+-keep class dev.akhil.freebuff.inference.** { *; }
+-keep class dev.akhil.freebuff.voice.stt.** { *; }
+-keep class dev.akhil.freebuff.voice.tts.** { *; }
+-keepclassmembers class * { @kotlinx.serialization.Serializable *; }
+-keepattributes *Annotation*, InnerClasses, Signature
+-dontwarn org.slf4j.**
+-dontwarn ai.onnxruntime.**
