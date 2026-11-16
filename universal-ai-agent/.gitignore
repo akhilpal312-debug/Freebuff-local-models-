@@ -1,0 +1,33 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+**/*.jks
+**/*.keystore
+android/local.properties
+
+# Python
+backend/.venv/
+backend/data/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+*.iml
+*.apk
+*.aab
+
+# OS
+.DS_Store
+
+# signing material and generated assets
+release-key.jks
+release-key-password.txt
+*.idsig
